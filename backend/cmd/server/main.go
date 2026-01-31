@@ -6,10 +6,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"software-management-platform/backend/internal/config"
 	"software-management-platform/backend/internal/routes"
+	"software-management-platform/backend/internal/database"
 )
 
 func main() {
 	config.LoadEnv()
+
+	database.ConnectPostgres()
 
 	router:= gin.Default()
 
