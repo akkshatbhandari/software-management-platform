@@ -7,6 +7,7 @@ import (
 	"software-management-platform/services/core-go/internal/config"
 	"software-management-platform/services/core-go/internal/routes"
 	"software-management-platform/services/core-go/internal/database"
+	"software-management-platform/services/core-go/internal/projects"
 )
 
 func main() {
@@ -15,6 +16,8 @@ func main() {
 	database.ConnectPostgres()
 
 	router:= gin.Default()
+
+	projects.RegisterRoutes(router, database.DB)
 
 	routes.RegisterHealthRoutes(router)
 
