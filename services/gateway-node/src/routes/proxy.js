@@ -22,13 +22,32 @@ router.get('/health',async(req,res)=>{
 router.get('/projects', async(req, res)=>{
     try {
         const response = await axios.get(
-            `${ENV.CORE_GO_BASE_URL}/projects`
+            `${ENV.CORE_GO_BASE_URL}/projects`,
         );
         res.status(response.status).json(response.data);
     } catch (error) {
         res.status(502).json({
             error: "Failed to fetch projects from Core service",
         });
+    }
+});
+
+router.post("/projects", async(req, res)=>{
+    try {
+        const response = await axios.post(
+            `${ENV.CORE_GO_BASE_URL}/projects`,
+            req.body,
+            {headers: {"Content-Type": "application/json"}}
+        )
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if(error.response) {
+            res.status(error.response.status).json(error.response.data);
+        }else{
+            res.status(502).json({
+                error: "Core service is unreachable",
+            });
+        }
     }
 });
 

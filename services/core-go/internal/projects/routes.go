@@ -11,4 +11,6 @@ func RegisterRoutes(router *gin.Engine, db *sql.DB) {
 	handler := NewHandler(repo)
 
 	router.GET("/projects", handler.GetProjects)
+	router.POST("/projects", handler.CreateProject)
 }
+

@@ -34,3 +34,32 @@ func (r *Repository) GetAll() ([]Project, error) {
 	}
 	return projects, nil
 }
+
+func (r *Repository) Create(input CreateProjectInput) (Project, error) {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return Project{}, err
+	}
+
+	defer tx.Rollback()
+
+	var project Project
+
+	err = tx.QueryRow(
+		`INSERT INTO projects (name, description)
+		VALUES ($1, $2)
+		RETURNING id, name, description`,
+		input.Name,
+		input.Description,
+	).Scan(&project.ID, &project.Name, &project.Description)
+
+	if err != nil {
+		return Project{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Project{}, err
+	}
+
+	return project, nil
+}
