@@ -3,11 +3,13 @@ package main
 import (
 	"log"
 
-	"github.com/gin-gonic/gin"
+	"software-management-platform/services/core-go/internal/auth"
 	"software-management-platform/services/core-go/internal/config"
-	"software-management-platform/services/core-go/internal/routes"
 	"software-management-platform/services/core-go/internal/database"
 	"software-management-platform/services/core-go/internal/projects"
+	"software-management-platform/services/core-go/internal/routes"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -18,6 +20,10 @@ func main() {
 	router:= gin.Default()
 
 	projects.RegisterRoutes(router, database.DB)
+
+	authRepo := &auth.Repository{DB: database.DB}
+
+	auth.RegisterAuthRoutes(router, authRepo)
 
 	routes.RegisterHealthRoutes(router)
 
