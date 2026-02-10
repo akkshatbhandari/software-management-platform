@@ -1,5 +1,6 @@
 import express from 'express';
 import axios from 'axios';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -32,13 +33,17 @@ router.get('/projects', async(req, res)=>{
     }
 });
 
-router.post("/projects", async(req, res)=>{
+router.post("/projects", authenticateToken, async(req, res)=>{
     try {
         const response = await axios.post(
             `${ENV.CORE_GO_BASE_URL}/projects`,
             req.body,
-            {headers: {"Content-Type": "application/json"}}
-        )
+            {
+                headers: {
+                    "X-User-ID": req.user.user_id,
+                }
+            }
+        );
         res.status(response.status).json(response.data);
     } catch (error) {
         if(error.response) {

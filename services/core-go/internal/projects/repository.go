@@ -35,7 +35,7 @@ func (r *Repository) GetAll() ([]Project, error) {
 	return projects, nil
 }
 
-func (r *Repository) Create(input CreateProjectInput) (Project, error) {
+func (r *Repository) Create(input CreateProjectInput, userID int) (Project, error) {
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return Project{}, err
