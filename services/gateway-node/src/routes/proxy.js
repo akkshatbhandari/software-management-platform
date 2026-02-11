@@ -1,6 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import { authenticateToken } from '../middleware/auth.js';
+import { requireRole } from '../middleware/roles.js';
 
 const router = express.Router();
 
@@ -55,5 +56,12 @@ router.post("/projects", authenticateToken, async(req, res)=>{
         }
     }
 });
+
+router.get("/projects/all", authenticateToken, requireRole(["admin"]),
+            async(req,res)=>{
+                const response = await axios.get("http://localhost:3000/projects");
+                res.json(response.data);
+            }
+);
 
 export default router;

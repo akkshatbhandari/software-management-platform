@@ -77,6 +77,7 @@ func Login(repo *Repository) gin.HandlerFunc {
 		c.JSON(http.StatusOK,gin.H{
 			"id": user.ID,
 			"email" : user.Email,
+			"role": user.Role,
 			"message": "login successful",
 		})
 	}

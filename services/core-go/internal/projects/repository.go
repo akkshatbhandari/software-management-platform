@@ -21,7 +21,7 @@ func (r *Repository) GetAll() ([]Project, error) {
 
 	defer rows.Close()
 
-	var projects []Project
+	projects := []Project{}
 
 	for rows.Next() {
 		var p Project
@@ -32,6 +32,11 @@ func (r *Repository) GetAll() ([]Project, error) {
 
 		projects = append(projects, p)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil,err
+	}
+	
 	return projects, nil
 }
 

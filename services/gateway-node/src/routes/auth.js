@@ -16,12 +16,13 @@ router.post("/login",async(req,res)=>{
             {email, password}
         );
 
-        const {id, email: userEmail} = response.data;
+        const {id, email: userEmail, role} = response.data;
 
         const token = jwt.sign(
             {
                 user_id: id,
-                email: userEmail
+                email: userEmail,
+                role: role,
             },
             process.env.JWT_SECRET,
             {
