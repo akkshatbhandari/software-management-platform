@@ -4,10 +4,12 @@ import jwt from 'jsonwebtoken';
 
 import axios from 'axios';
 
+import {authLimiter} from '../middleware/rateLimit.js';
+
 
 const router = express.Router();
 
-router.post("/login",async(req,res)=>{
+router.post("/login",authLimiter,async(req,res)=>{
     const { email, password } = req.body;
 
     try {
