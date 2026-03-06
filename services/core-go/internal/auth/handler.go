@@ -1,14 +1,16 @@
 package auth
 
-import(
+import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type RegisterRequest struct {
-	Email string `json:"email"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -21,8 +23,21 @@ func Register(repo *Repository) gin.HandlerFunc {
 			return
 		}
 
+		email := strings.TrimSpace(strings.ToLower(req.Email))
+		password := strings.TrimSpace(req.Password)
+
+		if email == "" || !strings.Contains(email, "@") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email"})
+			return
+		}
+
+		if len(password) < 8 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 8 characters long"})
+			return
+		}
+
 		hash, err := bcrypt.GenerateFromPassword(
-			[]byte(req.Password),
+			[]byte(password),
 			bcrypt.DefaultCost,
 		)
 
@@ -31,9 +46,13 @@ func Register(repo *Repository) gin.HandlerFunc {
 			return
 		}
 
-		err = repo.CreateUser(req.Email, string(hash))
+		err = repo.CreateUser(email, string(hash))
 		if err != nil {
-			c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+			if errors.Is(err, ErrUserAlreadyExists) {
+				c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+			}
 			return
 		}
 
@@ -44,7 +63,7 @@ func Register(repo *Repository) gin.HandlerFunc {
 }
 
 type LoginRequest struct {
-	Email string `json:"email"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -57,28 +76,135 @@ func Login(repo *Repository) gin.HandlerFunc {
 			return
 		}
 
-		user,err := repo.GetUserByEmail(req.Email)
+		email := strings.TrimSpace(strings.ToLower(req.Email))
+		password := strings.TrimSpace(req.Password)
+
+		if email == "" || !strings.Contains(email, "@") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email"})
+			return
+		}
+
+		if password == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Password is required"})
+			return
+		}
+
+		user, err := repo.GetUserByEmail(email)
+
+		if err != nil {
+			if errors.Is(err, ErrUserNotFound) {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+			}
+			return
+		}
+
+		err = bcrypt.CompareHashAndPassword(
+			[]byte(user.PasswordHash),
+			[]byte(password),
+		)
 
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 			return
 		}
 
-		err = bcrypt.CompareHashAndPassword(
-			[]byte(user.PasswordHash),
-			[]byte(req.Password),
-		)
+		c.JSON(http.StatusOK, gin.H{
+			"id":      user.ID,
+			"email":   user.Email,
+			"role":    user.Role,
+			"message": "login successful",
+		})
+	}
+}
 
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"}	)
+type storeRefreshTokenRequest struct {
+	UserID int    `json:"user_id"`
+	Token  string `json:"token"`
+}
+
+func StoreRefreshToken(repo *Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req storeRefreshTokenRequest
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 			return
 		}
 
-		c.JSON(http.StatusOK,gin.H{
-			"id": user.ID,
-			"email" : user.Email,
-			"role": user.Role,
-			"message": "login successful",
-		})
+		if req.UserID <= 0 || strings.TrimSpace(req.Token) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id or token"})
+			return
+		}
+
+		if err := repo.StoreRefreshToken(req.UserID, req.Token); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store refresh token"})
+			return
+		}
+
+		c.Status(http.StatusCreated)
+	}
+}
+
+type validateRefreshTokenRequest struct {
+	UserID int    `json:"user_id"`
+	Token  string `json:"token"`
+}
+
+func ValidateRefreshToken(repo *Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req validateRefreshTokenRequest
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		if req.UserID <= 0 || strings.TrimSpace(req.Token) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id or token"})
+			return
+		}
+
+		valid, err := repo.IsRefreshTokenValid(req.UserID, req.Token)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate refresh token"})
+			return
+		}
+
+		if !valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"valid": true})
+	}
+}
+
+type revokeRefreshTokenRequest struct {
+	UserID int    `json:"user_id"`
+	Token  string `json:"token"`
+}
+
+func RevokeRefreshToken(repo *Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req revokeRefreshTokenRequest
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		if req.UserID <= 0 || strings.TrimSpace(req.Token) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id or token"})
+			return
+		}
+
+		if err := repo.RevokeRefreshToken(req.UserID, req.Token); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke refresh token"})
+			return
+		}
+
+		c.Status(http.StatusNoContent)
 	}
 }

@@ -12,12 +12,18 @@ function authenticateToken(req, res, next) {
     const token = authHeader.split(" ")[1];
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded)=>{
+        
         if(err) {
             return res.status(403).json({
                 error: "Invalid or expired token"
             });
         }
-
+        
+        if(decoded.token_type !== "access") {
+            return res.status(401).json({
+                error: "Refresh token is not allowed to access this resource"
+            });
+        }
         req.user = decoded;
 
         next();
