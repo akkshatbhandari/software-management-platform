@@ -84,6 +84,12 @@ router.post("/refresh", authLimiter, async(req, res)=>{
     try {
         const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
+        if(payload.token_type !== "refresh") {
+            return res.status(401).json({
+                error: "Invalid refresh token"
+            });
+        }
+
         await axios.post(`${ENV.CORE_GO_BASE_URL}/auth/refresh/validate`, {
             user_id: payload.user_id,
             token: refreshToken,

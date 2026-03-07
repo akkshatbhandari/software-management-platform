@@ -1,7 +1,9 @@
 package projects
 
 import (
+	"log"
 	"net/http"
+	"software-management-platform/services/core-go/internal/audit"
 
 	"github.com/gin-gonic/gin"
 
@@ -71,6 +73,12 @@ func (h *Handler) CreateProject(c *gin.Context) {
 			"error": "failed to create project",
 		})
 		return
+	}
+
+	auditRepo := audit.NewRepository(h.Repo.DB)
+
+	if err := auditRepo.CreateAuditLog(userID, "create_project", "project", project.ID); err != nil{
+		log.Println("audit log failed", err)
 	}
 
 	c.JSON(http.StatusCreated, project)

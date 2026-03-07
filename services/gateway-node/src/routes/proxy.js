@@ -59,7 +59,7 @@ router.post("/projects", authenticateToken, async(req, res)=>{
 
 router.get("/projects/all", authenticateToken, requireRole(["admin"]),
             async(req,res)=>{
-                const response = await axios.get("http://localhost:3000/projects");
+                const response = await axios.get(`${ENV.CORE_GO_BASE_URL}/projects`);
                 res.json(response.data);
             }
 );
