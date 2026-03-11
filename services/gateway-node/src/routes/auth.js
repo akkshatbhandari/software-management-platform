@@ -7,6 +7,8 @@ import axios from 'axios';
 import {authLimiter} from '../middleware/rateLimit.js';
 import {ENV} from '../config/env.js';
 
+import {emailQueue} from '../queue/jobs.js'
+
 
 const router = express.Router();
 
@@ -21,6 +23,33 @@ function refreshCookieOptions() {
         path: "/auth",
     };
 }
+
+router.post("/register", async(req,res)=>{
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    try {
+        await axios.post(
+            `${ENV.CORE_GO_BASE_URL}/auth/register`,
+            { email, password }
+        );
+
+        await emailQueue.add("sendWelcomeEmail",{
+            email:user.email
+        });
+        
+        res.status(201).json({ message: "User registered successfully" });
+    } catch (error) {
+        if (error.response && error.response.data && error.response.data.error === "user already exists") {
+            res.status(409).json({ error: "User already exists" });
+        } else {
+            res.status(500).json({ error: "Registration failed" });
+        }
+    }
+})
 
 router.post("/login",authLimiter,async(req,res)=>{
     const { email, password } = req.body;
