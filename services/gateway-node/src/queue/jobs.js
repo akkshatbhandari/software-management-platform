@@ -1,6 +1,6 @@
 import {Queue} from "bullmq";
 
-import connection from 'redis.js';
+import connection from '../queue/redis.js';
 
 const emailQueue = new Queue("emailQueue", {connection});
 

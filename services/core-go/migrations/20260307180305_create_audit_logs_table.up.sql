@@ -5,5 +5,5 @@ create table audit_logs(
     resource text not null,
     resource_id integer,
     metadata jsonb,
-    created_at timestamp default current_timestamp,
+    created_at timestamp default current_timestamp
 );
