@@ -24,6 +24,23 @@ function refreshCookieOptions() {
     };
 }
 
+function calculateRefreshTokenExpiry() {
+    const refreshTokenExpiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN;
+    if(!refreshTokenExpiresIn) {
+        throw new Error("Refresh token expires in is not set");
+    }
+    if(refreshTokenExpiresIn.endsWith("d")) {
+        return parseInt(refreshTokenExpiresIn) * 24 * 60 * 60 * 1000;
+    } else if(refreshTokenExpiresIn.endsWith("h")) {
+        return parseInt(refreshTokenExpiresIn) * 60 * 60 * 1000;
+    } else if(refreshTokenExpiresIn.endsWith("m")) {
+        return parseInt(refreshTokenExpiresIn) * 60 * 1000;
+    } else if(refreshTokenExpiresIn.endsWith("s")) {    
+        return parseInt(refreshTokenExpiresIn) * 1000;
+    }else {
+        return parseInt(refreshTokenExpiresIn);
+    }
+}
 router.post("/register", async(req,res)=>{
     const { email, password } = req.body;
 
@@ -38,12 +55,12 @@ router.post("/register", async(req,res)=>{
         );
 
         await emailQueue.add("sendWelcomeEmail",{
-            email:user.email
+            email
         });
         
         res.status(201).json({ message: "User registered successfully" });
     } catch (error) {
-        if (error.response && error.response.data && error.response.data.error === "user already exists") {
+        if (error.response &&  error.response?.data?.error?.toLowerCase() === "user already exists") {
             res.status(409).json({ error: "User already exists" });
         } else {
             res.status(500).json({ error: "Registration failed" });
@@ -52,7 +69,14 @@ router.post("/register", async(req,res)=>{
 })
 
 router.post("/login",authLimiter,async(req,res)=>{
+
     const { email, password } = req.body;
+
+    if(!email || !password) {
+        return res.status(401).json({
+            error: "Email and password are required"
+        })
+    }
 
     try {
         const response = await axios.post(
@@ -78,7 +102,9 @@ router.post("/login",authLimiter,async(req,res)=>{
         const refreshToken = jwt.sign(
             {
                 token_type: "refresh",
-                user_id:id
+                user_id:id,
+                email: email,
+                role: role,
             },
             process.env.JWT_REFRESH_SECRET,
             {
@@ -88,15 +114,16 @@ router.post("/login",authLimiter,async(req,res)=>{
 
         await axios.post(`${ENV.CORE_GO_BASE_URL}/auth/refresh/store`, {
             user_id: id,
-            token: refreshToken
+            token: refreshToken,
+            expiresAt: new Date(Date.now() + calculateRefreshTokenExpiry())  
         });
         
         res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
         res.json({ accessToken });
 
     } catch (error) {
-        res.status(401).json({
-            error: "Invalid email or password"
+        res.status(500).json({
+            error: "Internal server error in login"
         });
     }
 });
@@ -105,7 +132,7 @@ router.post("/refresh", authLimiter, async(req, res)=>{
     const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
 
     if(!refreshToken) {
-        return res.status(401).json({
+        return res.status(403).json({
             error: "Refresh token is required"
         });
     }
@@ -128,6 +155,8 @@ router.post("/refresh", authLimiter, async(req, res)=>{
             {
                 token_type: "refresh",
                 user_id: payload.user_id,
+                email: payload.email,
+                role: payload.role,
             },
             process.env.JWT_REFRESH_SECRET,
             {
@@ -138,6 +167,7 @@ router.post("/refresh", authLimiter, async(req, res)=>{
         await axios.post(`${ENV.CORE_GO_BASE_URL}/auth/refresh/store`, {
             user_id: payload.user_id,
             token: newRefreshToken,
+            expiresAt: new Date(Date.now() + calculateRefreshTokenExpiry())
         });
 
         await axios.post(`${ENV.CORE_GO_BASE_URL}/auth/refresh/revoke`, {
@@ -149,6 +179,8 @@ router.post("/refresh", authLimiter, async(req, res)=>{
             {
                 token_type: "access",
                 user_id: payload.user_id,
+                role: payload.role,
+                email: payload.email,
             },
             process.env.JWT_SECRET,
             {
@@ -159,8 +191,8 @@ router.post("/refresh", authLimiter, async(req, res)=>{
         res.cookie(REFRESH_COOKIE_NAME, newRefreshToken, refreshCookieOptions());
         res.json({ accessToken: newAccessToken });
     } catch (error) {
-        return res.status(403).json({
-            error: "Invalid refresh token"
+        return res.status(500).json({
+            error: "Internal server error in refreshing token"
         })
     }
 });

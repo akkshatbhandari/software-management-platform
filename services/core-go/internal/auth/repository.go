@@ -47,12 +47,11 @@ func (r *Repository) GetUserByEmail(email string) (*User, error) {
 	return &user, err
 }
 
-func (r *Repository) StoreRefreshToken(userID int, token string) error {
+func (r *Repository) StoreRefreshToken(userID int, token string, expiresAt time.Time) error {
 	query := `
 		INSERT INTO refresh_tokens (user_id, token, expires_at)
 		VALUES ($1, $2, $3)
 	`
-	expiresAt := time.Now().Add(30 * 24 * time.Hour)
 	_, err := r.DB.Exec(query, userID, token, expiresAt)
 	return err
 }

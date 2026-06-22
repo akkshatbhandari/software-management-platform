@@ -16,7 +16,7 @@ func (r *Repository) GetAll() ([]Project, error) {
 	)
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	defer rows.Close()
@@ -26,17 +26,17 @@ func (r *Repository) GetAll() ([]Project, error) {
 	for rows.Next() {
 		var p Project
 
-		if err:= rows.Scan(&p.ID, &p.Name, &p.Description); err != nil {
-			return nil,err
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description); err != nil {
+			return nil, err
 		}
 
 		projects = append(projects, p)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil,err
+		return nil, err
 	}
-	
+
 	return projects, nil
 }
 
@@ -51,11 +51,12 @@ func (r *Repository) Create(input CreateProjectInput, userID int) (Project, erro
 	var project Project
 
 	err = tx.QueryRow(
-		`INSERT INTO projects (name, description)
-		VALUES ($1, $2)
+		`INSERT INTO projects (name, description, user_id)
+		VALUES ($1, $2, $3)
 		RETURNING id, name, description`,
 		input.Name,
 		input.Description,
+		userID,
 	).Scan(&project.ID, &project.Name, &project.Description)
 
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -23,7 +24,7 @@ func Register(repo *Repository) gin.HandlerFunc {
 			return
 		}
 
-		email := strings.TrimSpace(strings.ToLower(req.Email))
+		email := strings.TrimSpace(strings.ToLower(req.Email)) //convert to lowercase and trim spaces
 		password := strings.TrimSpace(req.Password)
 
 		if email == "" || !strings.Contains(email, "@") {
@@ -122,6 +123,7 @@ func Login(repo *Repository) gin.HandlerFunc {
 type storeRefreshTokenRequest struct {
 	UserID int    `json:"user_id"`
 	Token  string `json:"token"`
+	Expiry time.Time `json:"expiresAt"`
 }
 
 func StoreRefreshToken(repo *Repository) gin.HandlerFunc {
@@ -138,11 +140,16 @@ func StoreRefreshToken(repo *Repository) gin.HandlerFunc {
 			return
 		}
 
-		if err := repo.StoreRefreshToken(req.UserID, req.Token); err != nil {
+		if err := repo.StoreRefreshToken(req.UserID, req.Token, req.Expiry); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store refresh token"})
 			return
 		}
 
+		if req.Expiry.Before(time.Now()) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Expiry time must be in the future"})
+			return
+		}
+		
 		c.Status(http.StatusCreated)
 	}
 }

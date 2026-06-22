@@ -19,7 +19,16 @@ func NewHandler(repo *Repository) *Handler {
 }
 
 func (h *Handler) GetProjects(c *gin.Context) {
+
+	if c.GetHeader("X-User-ID") == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "missing X-User-ID header",
+		})
+		return
+	}
+
 	projects, err := h.Repo.GetAll()
+
 	if err!= nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to retrieve projects",

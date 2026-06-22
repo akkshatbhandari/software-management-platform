@@ -21,7 +21,7 @@ router.get('/health',async(req,res)=>{
     }
 });
 
-router.get('/projects', async(req, res)=>{
+router.get('/projects',authenticateToken, async(req, res)=>{
     try {
         const response = await axios.get(
             `${ENV.CORE_GO_BASE_URL}/projects`,
@@ -58,10 +58,20 @@ router.post("/projects", authenticateToken, async(req, res)=>{
 });
 
 router.get("/projects/all", authenticateToken, requireRole(["admin"]),
-            async(req,res)=>{
+        async(req,res)=>{
+            try{
                 const response = await axios.get(`${ENV.CORE_GO_BASE_URL}/projects`);
                 res.json(response.data);
+            }catch(error){
+                if(error.response){
+                    res.status(error.response.status).json(error.response.data);
+                }else{
+                    res.status(502).json({
+                        error: "Core service is unreachable",
+                    });
+                }
             }
+        }
 );
 
 export default router;
